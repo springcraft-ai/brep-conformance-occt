@@ -23,6 +23,36 @@ maintains it.
 - **The suite decides what is scored.** An official run uses only a commit of this adapter that the
   suite's maintainers have reviewed as pass-through, whoever wrote it.
 
+## Overview
+
+[`adapter.py`](adapter.py) answers the suite's requests on stdin and stdout, one JSON request and
+one reply per line, as the suite's
+[api.md](https://github.com/springcraft-ai/brep-conformance/blob/main/doc/api.md#calling-a-kernel)
+describes, and keeps solids between requests under integer handles. It answers each function with
+OpenCascade's one call for it, as
+[the contract](https://github.com/springcraft-ai/brep-conformance/blob/main/doc/contract.md#what-an-adapter-may-do)
+asks, and lists the rest as unsupported. It reaches OpenCascade through the OCP bindings, at the
+release [`pyproject.toml`](pyproject.toml) pins.
+
+## Setup
+
+[uv](https://docs.astral.sh/uv/), which installs Python 3.12 and the pinned OCP package on the first
+run.
+
+## Usage
+
+The suite runs the adapter as a separate process. Build the adapter here, then run the suite from a
+checkout of [brep-conformance](https://github.com/springcraft-ai/brep-conformance) beside this one:
+
+```bash
+uv sync --project .
+cd ../brep-conformance
+cargo build --release -p brep-conformance
+target/release/brep-conformance --adapter "uv run -q --project ../brep-conformance-occt \
+    python -I ../brep-conformance-occt/adapter.py" \
+    --out occt.json
+```
+
 ## Licences
 
 The adapter in this repository is under the MIT licence: see [LICENSE](LICENSE).
