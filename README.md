@@ -34,6 +34,11 @@ OpenCascade's one call for it, as
 asks, and lists the rest as unsupported. It reaches OpenCascade through the OCP bindings, at the
 release [`pyproject.toml`](pyproject.toml) pins.
 
+A display is OpenCascade's mesher read back the way its glTF writer reads it: each face through
+`RWMesh_FaceIterator`, with OpenCascade's normals and its triangles turned outward, and the polyline
+of every edge the mesher draws. That includes seams and the edges on a ball, which the protocol's
+display leaves out.
+
 ## Setup
 
 [uv](https://docs.astral.sh/uv/), which installs Python 3.12 and the pinned OCP package on the first
