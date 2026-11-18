@@ -97,6 +97,7 @@ from OCP.OCP.collections import (
     Array1_int,
     List_TopoDS_Shape,
 )
+from OCP.RWMesh import RWMesh_FaceIterator
 from OCP.Standard import Standard_Failure
 from OCP.STEPControl import STEPControl_AsIs, STEPControl_Reader, STEPControl_Writer
 from OCP.TopAbs import (
@@ -910,6 +911,52 @@ def mesh(s, tolerance):
     return {"positions": positions, "triangles": triangles}
 
 
+def display(s, tolerance):
+    """OpenCascade's mesher, read back the way its glTF writer reads it: each face through
+    RWMesh_FaceIterator, which gives the face's nodes, its normals and its triangles turned outward;
+    and every edge as the mesher's polygon on a face it bounds, seams included."""
+    BRepMesh_IncrementalMesh(s, tolerance, False, 0.5, True)
+
+    def xyz(p):
+        return [p.X(), p.Y(), p.Z()]
+
+    faces = []
+    it = RWMesh_FaceIterator(s)
+    while it.More():
+        lo, hi = it.NodeLower(), it.NodeUpper()
+        nodes = range(lo, hi + 1)
+        elems = range(it.ElemLower(), it.ElemUpper() + 1)
+        faces.append({
+            "positions": [xyz(it.NodeTransformed(i)) for i in nodes],
+            "normals": [xyz(it.NormalTransformed(i)) for i in nodes],
+            "triangles": [[v - lo for v in it.TriangleOriented(i).Get()] for i in elems],
+        })
+        it.Next()
+
+    edges, seen = [], []
+    fx = TopExp_Explorer(s, TopAbs_FACE)
+    while fx.More():
+        face = TopoDS.Face(fx.Current())
+        loc = TopLoc_Location()
+        tri = BRep_Tool.Triangulation_s(face, loc)
+        trsf = loc.Transformation()
+        ex = TopExp_Explorer(face, TopAbs_EDGE)
+        while ex.More():
+            edge = TopoDS.Edge(ex.Current())
+            if tri is not None and not any(edge.IsSame(e) for e in seen):
+                seen.append(edge)
+                poly = BRep_Tool.PolygonOnTriangulation_s(edge, tri, loc)
+                if poly is not None:
+                    ids = poly.Nodes()
+                    edges.append([
+                        xyz(tri.Node(ids.Value(j)).Transformed(trsf))
+                        for j in range(ids.Lower(), ids.Upper() + 1)
+                    ])
+            ex.Next()
+        fx.Next()
+    return {"faces": faces, "edges": edges}
+
+
 def faces_at(s, points):
     """The face each point lies on: the nearest, which must pass within 1e-6 mm."""
     found = []
@@ -1015,8 +1062,6 @@ UNSUPPORTED = [
     "interference",
     # Its section gives curves; the protocol asks for the area they bound.
     "section_area",
-    # A display mesh with its creases, which this adapter does not draw.
-    "display",
 ]
 CONFIGURATION = (
     "fuzzy value and tolerances 1e-7 mm where a call takes one; "
@@ -1100,6 +1145,8 @@ def handle(req):
         return raycast(solids[req["s"]], req["origin"], req["direction"])
     elif cmd == "mesh":
         return mesh(solids[req["s"]], req["tolerance"])
+    elif cmd == "display":
+        return display(solids[req["s"]], req["tolerance"])
     elif cmd == "offset":
         shape = offset(solids[req["s"]], req["distance"])
     elif cmd == "shell":
