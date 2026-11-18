@@ -71,4 +71,4 @@ redistribute that includes them is subject to their terms as well as this reposi
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Every commit needs a `Signed-off-by` line.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
