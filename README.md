@@ -38,7 +38,9 @@ A display is OpenCascade's mesher read back the way its glTF writer reads it: ea
 `RWMesh_FaceIterator`, with OpenCascade's normals and its triangles turned outward, and the polyline
 of each edge the mesher draws between two faces. A degenerate edge, a seam (closed on its one face)
 and an edge between two faces on one surface are left out, as the protocol's display asks; the
-choice is OpenCascade's own `BRep_Tool` answers, with no number of the adapter's.
+choice is OpenCascade's own `BRep_Tool` answers, with no number of the adapter's. At a degenerate
+edge, such as a cone's apex or a ball's pole, each triangle has its own vertex, as the protocol's
+display asks, with OpenCascade's normal there along the triangle's middle.
 
 ## Setup
 
