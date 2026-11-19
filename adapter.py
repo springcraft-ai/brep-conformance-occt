@@ -914,7 +914,7 @@ def mesh(s, tolerance):
 def display(s, tolerance):
     """OpenCascade's mesher, read back the way its glTF writer reads it: each face through
     RWMesh_FaceIterator, which gives the face's nodes, its normals and its triangles turned outward;
-    and every edge as the mesher's polygon on a face it bounds, seams included."""
+    and each edge between two faces as the mesher's polygon on a face it bounds."""
     BRepMesh_IncrementalMesh(s, tolerance, False, 0.5, True)
 
     def xyz(p):
@@ -933,27 +933,44 @@ def display(s, tolerance):
         })
         it.Next()
 
-    edges, seen = [], []
+    # Each edge once, with the faces it bounds.
+    bounded = []
     fx = TopExp_Explorer(s, TopAbs_FACE)
     while fx.More():
         face = TopoDS.Face(fx.Current())
-        loc = TopLoc_Location()
-        tri = BRep_Tool.Triangulation_s(face, loc)
-        trsf = loc.Transformation()
         ex = TopExp_Explorer(face, TopAbs_EDGE)
         while ex.More():
             edge = TopoDS.Edge(ex.Current())
-            if tri is not None and not any(edge.IsSame(e) for e in seen):
-                seen.append(edge)
-                poly = BRep_Tool.PolygonOnTriangulation_s(edge, tri, loc)
-                if poly is not None:
-                    ids = poly.Nodes()
-                    edges.append([
-                        xyz(tri.Node(ids.Value(j)).Transformed(trsf))
-                        for j in range(ids.Lower(), ids.Upper() + 1)
-                    ])
+            for e, fs in bounded:
+                if e.IsSame(edge):
+                    if not any(f.IsSame(face) for f in fs):
+                        fs.append(face)
+                    break
+            else:
+                bounded.append((edge, [face]))
             ex.Next()
         fx.Next()
+
+    # The protocol's edges are those between two faces: a degenerate edge, a seam (closed on its
+    # one face) and an edge between two faces on one surface draw no line on the solid.
+    edges = []
+    for edge, fs in bounded:
+        if BRep_Tool.Degenerated_s(edge) or BRep_Tool.IsClosed_s(edge, fs[0]):
+            continue
+        if len(fs) == 2 and BRep_Tool.Surface_s(fs[0]) == BRep_Tool.Surface_s(fs[1]):
+            continue
+        loc = TopLoc_Location()
+        tri = BRep_Tool.Triangulation_s(fs[0], loc)
+        if tri is None:
+            continue
+        poly = BRep_Tool.PolygonOnTriangulation_s(edge, tri, loc)
+        if poly is not None:
+            trsf = loc.Transformation()
+            ids = poly.Nodes()
+            edges.append([
+                xyz(tri.Node(ids.Value(j)).Transformed(trsf))
+                for j in range(ids.Lower(), ids.Upper() + 1)
+            ])
     return {"faces": faces, "edges": edges}
 
 
