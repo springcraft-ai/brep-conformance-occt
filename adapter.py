@@ -12,7 +12,7 @@ from importlib.metadata import version
 
 from OCP.Bnd import Bnd_Box
 from OCP.BRep import BRep_Builder, BRep_Tool
-from OCP.BRepAdaptor import BRepAdaptor_Curve
+from OCP.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
 from OCP.BRepAlgoAPI import (
     BRepAlgoAPI_Common,
     BRepAlgoAPI_Cut,
@@ -38,6 +38,7 @@ from OCP.BRepExtrema import BRepExtrema_DistShapeShape
 from OCP.BRepFilletAPI import BRepFilletAPI_MakeChamfer, BRepFilletAPI_MakeFillet
 from OCP.BRepGProp import BRepGProp
 from OCP.BRepLib import BRepLib
+from OCP.BRepLProp import BRepLProp_SLProps
 from OCP.BRepMesh import BRepMesh_IncrementalMesh
 from OCP.BRepOffset import BRepOffset_MakeOffset, BRepOffset_Skin
 from OCP.BRepOffsetAPI import (
@@ -97,6 +98,7 @@ from OCP.OCP.collections import (
     Array1_int,
     List_TopoDS_Shape,
 )
+from OCP.Precision import Precision
 from OCP.RWMesh import RWMesh_FaceIterator
 from OCP.Standard import Standard_Failure
 from OCP.STEPControl import STEPControl_AsIs, STEPControl_Reader, STEPControl_Writer
@@ -911,26 +913,77 @@ def mesh(s, tolerance):
     return {"positions": positions, "triangles": triangles}
 
 
+def split_apexes(face, tri, lo, out):
+    """Gives each triangle meeting a degenerate edge of the face, such as a cone's apex or a ball's
+    pole, its own vertex there, as the protocol's display asks. Its normal is OpenCascade's at the
+    point of the edge across from the triangle's far side, on the iso the triangle's middle runs
+    along, turned to face the way OpenCascade's normals at the triangle's other corners do."""
+    loc = TopLoc_Location()
+    line = {}
+    ex = TopExp_Explorer(face, TopAbs_EDGE)
+    while ex.More():
+        edge = TopoDS.Edge(ex.Current())
+        poly = BRep_Tool.PolygonOnTriangulation_s(edge, tri, loc) if BRep_Tool.Degenerated_s(edge) else None
+        if poly is not None:
+            ids = [poly.Nodes().Value(j) - lo for j in range(1, poly.NbNodes() + 1)]
+            ends = [tri.UVNode(ids[0] + lo), tri.UVNode(ids[-1] + lo)]
+            for i in ids:
+                line[i] = (ends[0].X(), ends[0].Y(), ends[1].X() - ends[0].X(), ends[1].Y() - ends[0].Y())
+        ex.Next()
+    if not line:
+        return
+    surface = BRepAdaptor_Surface(face)
+    pos, nor = out["positions"], out["normals"]
+    done = set()
+    for t in out["triangles"]:
+        for k, a in enumerate(t):
+            others = [t[(k + 1) % 3], t[(k + 2) % 3]]
+            if a not in line or any(o in line for o in others):
+                continue
+            u0, v0, du, dv = line[a]
+            mid = [tri.UVNode(others[0] + lo), tri.UVNode(others[1] + lo)]
+            mu, mv = (mid[0].X() + mid[1].X()) / 2, (mid[0].Y() + mid[1].Y()) / 2
+            span = du * du + dv * dv
+            along = ((mu - u0) * du + (mv - v0) * dv) / span if span > 0 else 0.0
+            props = BRepLProp_SLProps(surface, u0 + along * du, v0 + along * dv, 2,
+                                      Precision.Confusion_s())
+            if not props.IsNormalDefined():
+                continue
+            n = xyz(props.Normal())
+            way = [nor[others[0]][j] + nor[others[1]][j] for j in range(3)]
+            if sum(n[j] * way[j] for j in range(3)) < 0:
+                n = [-x for x in n]
+            if a in done:
+                pos.append(pos[a])
+                nor.append(n)
+                t[k] = len(pos) - 1
+            else:
+                done.add(a)
+                nor[a] = n
+
+
+def xyz(p):
+    return [p.X(), p.Y(), p.Z()]
+
+
 def display(s, tolerance):
     """OpenCascade's mesher, read back the way its glTF writer reads it: each face through
     RWMesh_FaceIterator, which gives the face's nodes, its normals and its triangles turned outward;
     and each edge between two faces as the mesher's polygon on a face it bounds."""
     BRepMesh_IncrementalMesh(s, tolerance, False, 0.5, True)
-
-    def xyz(p):
-        return [p.X(), p.Y(), p.Z()]
-
     faces = []
     it = RWMesh_FaceIterator(s)
     while it.More():
         lo, hi = it.NodeLower(), it.NodeUpper()
         nodes = range(lo, hi + 1)
         elems = range(it.ElemLower(), it.ElemUpper() + 1)
-        faces.append({
+        face = {
             "positions": [xyz(it.NodeTransformed(i)) for i in nodes],
             "normals": [xyz(it.NormalTransformed(i)) for i in nodes],
             "triangles": [[v - lo for v in it.TriangleOriented(i).Get()] for i in elems],
-        })
+        }
+        split_apexes(it.Face(), it.Triangulation(), lo, face)
+        faces.append(face)
         it.Next()
 
     # Each edge once, with the faces it bounds.
