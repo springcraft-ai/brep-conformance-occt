@@ -36,8 +36,9 @@ release [`pyproject.toml`](pyproject.toml) pins.
 
 A display is OpenCascade's mesher read back the way its glTF writer reads it: each face through
 `RWMesh_FaceIterator`, with OpenCascade's normals and its triangles turned outward, and the polyline
-of every edge the mesher draws. That includes seams and the edges on a ball, which the protocol's
-display leaves out.
+of each edge the mesher draws between two faces. A degenerate edge, a seam (closed on its one face)
+and an edge between two faces on one surface are left out, as the protocol's display asks; the
+choice is OpenCascade's own `BRep_Tool` answers, with no number of the adapter's.
 
 ## Setup
 
