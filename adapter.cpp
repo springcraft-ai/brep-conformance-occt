@@ -7,6 +7,7 @@
 #include <brep_protocol/brep_protocol.h>
 
 #include <BRepAdaptor_Curve.hxx>
+#include <BRepAdaptor_Curve2d.hxx>
 #include <BRepAdaptor_Surface.hxx>
 #include <BRepAlgoAPI_Common.hxx>
 #include <BRepAlgoAPI_Cut.hxx>
@@ -94,6 +95,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -633,6 +635,103 @@ void split_apexes(const TopoDS_Face& face,
     }
 }
 
+// Whether the two faces lie on one surface. A construction often gives each face a surface of its
+// own, such as one plane for each side of an extruded profile, so the test compares the surfaces'
+// geometry, for the elementary surfaces, and their handles otherwise.
+bool same_surface(const TopoDS_Face& a, const TopoDS_Face& b) {
+    if (BRep_Tool::Surface(a) == BRep_Tool::Surface(b)) {
+        return true;
+    }
+    const BRepAdaptor_Surface sa(a);
+    const BRepAdaptor_Surface sb(b);
+    if (sa.GetType() != sb.GetType()) {
+        return false;
+    }
+    const double d = Precision::Confusion();
+    const double angle = Precision::Angular();
+    // One axis line: parallel, either way, and through each other's location.
+    const auto same_line = [&](const gp_Ax1& x, const gp_Ax1& y) {
+        return x.IsParallel(y, angle) && gp_Lin(x).Distance(y.Location()) <= d;
+    };
+    switch (sa.GetType()) {
+        case GeomAbs_Plane:
+            return sa.Plane().Axis().IsParallel(sb.Plane().Axis(), angle) &&
+                   sa.Plane().Distance(sb.Plane().Location()) <= d;
+        case GeomAbs_Cylinder:
+            return same_line(sa.Cylinder().Axis(), sb.Cylinder().Axis()) &&
+                   std::abs(sa.Cylinder().Radius() - sb.Cylinder().Radius()) <= d;
+        case GeomAbs_Cone:
+            return same_line(sa.Cone().Axis(), sb.Cone().Axis()) &&
+                   sa.Cone().Apex().Distance(sb.Cone().Apex()) <= d &&
+                   std::abs(std::abs(sa.Cone().SemiAngle()) - std::abs(sb.Cone().SemiAngle())) <=
+                       angle;
+        case GeomAbs_Sphere:
+            return sa.Sphere().Location().Distance(sb.Sphere().Location()) <= d &&
+                   std::abs(sa.Sphere().Radius() - sb.Sphere().Radius()) <= d;
+        case GeomAbs_Torus:
+            return same_line(sa.Torus().Axis(), sb.Torus().Axis()) &&
+                   sa.Torus().Location().Distance(sb.Torus().Location()) <= d &&
+                   std::abs(sa.Torus().MajorRadius() - sb.Torus().MajorRadius()) <= d &&
+                   std::abs(sa.Torus().MinorRadius() - sb.Torus().MinorRadius()) <= d;
+        default:
+            return false;
+    }
+}
+
+// The outward unit normal of the face at the point of the edge at curve parameter t, or nothing
+// where the surface has no one normal there.
+std::optional<gp_Vec> outward_normal(const TopoDS_Edge& edge, const TopoDS_Face& face, double t) {
+    const gp_Pnt2d uv = BRepAdaptor_Curve2d(edge, face).Value(t);
+    BRepLProp_SLProps props(BRepAdaptor_Surface(face), uv.X(), uv.Y(), 1, Precision::Confusion());
+    if (!props.IsNormalDefined()) {
+        return std::nullopt;
+    }
+    gp_Vec n(props.Normal());
+    if (face.Orientation() == TopAbs_REVERSED) {
+        n.Reverse();
+    }
+    return n;
+}
+
+// The least and greatest signed angle between the outward normals of the two faces at the
+// vertices of the edge's polyline, positive where the edge is convex. `edge` is oriented as `a`
+// uses it, so `a` lies to the left of the edge's tangent seen against a's normal: the angle from
+// a's normal to b's normal turns about that tangent, positive where b falls away from a.
+std::optional<std::array<double, 2>> turn(const TopoDS_Edge& edge,
+                                          const TopoDS_Face& a,
+                                          const TopoDS_Face& b,
+                                          const occ::handle<Poly_PolygonOnTriangulation>& poly) {
+    if (!poly->HasParameters()) {
+        return std::nullopt;
+    }
+    const BRepAdaptor_Curve curve(edge);
+    std::optional<std::array<double, 2>> range;
+    const NCollection_Array1<int>& ids = poly->Nodes();
+    for (int j = ids.Lower(); j <= ids.Upper(); j++) {
+        const double t = poly->Parameter(j);
+        const auto na = outward_normal(edge, a, t);
+        const auto nb = outward_normal(edge, b, t);
+        gp_Pnt p;
+        gp_Vec tangent;
+        curve.D1(t, p, tangent);
+        if (!na || !nb || tangent.Magnitude() <= Precision::Confusion()) {
+            continue;
+        }
+        if (edge.Orientation() == TopAbs_REVERSED) {
+            tangent.Reverse();
+        }
+        tangent.Normalize();
+        const double angle = std::atan2(na->Crossed(*nb).Dot(tangent), na->Dot(*nb));
+        if (!range) {
+            range = std::array<double, 2>{angle, angle};
+        } else {
+            (*range)[0] = std::min((*range)[0], angle);
+            (*range)[1] = std::max((*range)[1], angle);
+        }
+    }
+    return range;
+}
+
 class Occt : public Kernel<Shape> {
   public:
     std::string name() const override {
@@ -660,30 +759,27 @@ class Occt : public Kernel<Shape> {
                "; meshes at an angular deflection of 0.5 rad";
     }
 
-    std::vector<std::string> unsupported() const override {
+    // Every function of the protocol except these, which the adapter does not offer:
+    // - move_faces, fillet_g2, fillet_conic, fillet_setback, fillet_setback_g2, fillet_faces and
+    //   full_round: OpenCascade has no such operation.
+    // - slab, betti, interference and section_area: OpenCascade reaches each in its own way, where
+    //   the protocol asks for one call of another shape. The adapter does not assemble them, so
+    //   that what is scored is OpenCascade. It builds a slab from a surface, side faces and sewing;
+    //   it counts shapes of each kind, where betti asks for pieces, tunnels and voids; it gives a
+    //   common solid and a distance, where interference asks for one verdict on a pair; and its
+    //   section gives curves, where section_area asks for the area they bound.
+    std::vector<std::string> supports() const override {
         return {
-            // Operations OpenCascade does not have.
-            "move_faces",
-            "fillet_g2",
-            "fillet_conic",
-            "fillet_setback",
-            "fillet_setback_g2",
-            "fillet_faces",
-            "full_round",
-            // Operations OpenCascade reaches in its own way, where the protocol asks for one call
-            // of
-            // another shape. The adapter does not assemble them, so that what is scored is
-            // OpenCascade.
-            // It builds such a solid from a surface, side faces and sewing; the protocol asks for
-            // one
-            // call.
-            "slab",
-            // It counts shapes of each kind; the protocol asks for pieces, tunnels and voids.
-            "betti",
-            // It gives a common solid and a distance; the protocol asks for one verdict on a pair.
-            "interference",
-            // Its section gives curves; the protocol asks for the area they bound.
-            "section_area",
+            "box", "cylinder", "sphere", "torus", "cone",
+            "extrude", "revolve", "screw", "loft", "loft_through", "sweep", "sweep_path",
+            "union", "intersection", "difference", "union_all", "difference_all",
+            "fillet", "fillet_radii", "fillet_variable",
+            "chamfer", "chamfer_two", "chamfer_distances",
+            "offset", "offset_faces", "delete_faces", "thicken", "shell", "draft",
+            "write_step", "sew", "read_step",
+            "volume", "area", "classify", "closest", "normal", "curvature", "check", "centroid",
+            "inertia", "distance", "section", "project", "bounding_box", "split",
+            "mesh", "display", "raycast", "transform", "affine",
         };
     }
 
@@ -1246,6 +1342,8 @@ class Occt : public Kernel<Shape> {
     Display display(const Shape& s, double tolerance) override {
         BRepMesh_IncrementalMesh(s, tolerance, false, 0.5, true);
         Display out;
+        // The face of each entry of `out.faces`, in its order.
+        std::vector<TopoDS_Face> drawn;
         for (RWMesh_FaceIterator it(s); it.More(); it.Next()) {
             const int lo = it.NodeLower();
             DisplayFace face;
@@ -1264,6 +1362,7 @@ class Occt : public Kernel<Shape> {
             }
             split_apexes(it.Face(), it.Triangulation(), lo, face);
             out.faces.push_back(std::move(face));
+            drawn.push_back(it.Face());
         }
 
         // Each edge once, with the faces it bounds.
@@ -1290,15 +1389,14 @@ class Occt : public Kernel<Shape> {
             }
         }
 
-        // The protocol's edges are those between two faces: a degenerate edge, a seam (closed on
-        // its one face) and an edge between two faces on one surface draw no line on the solid.
+        // A degenerate edge draws no line. A seam, closed on its one face, goes to `out.seams`;
+        // every other edge goes to `out.edges`, with the faces it bounds and the turn between
+        // them, and flagged as split where its two faces lie on one surface.
         for (const auto& [edge, faces] : bounded) {
-            if (BRep_Tool::Degenerated(edge) || BRep_Tool::IsClosed(edge, faces[0])) {
+            if (BRep_Tool::Degenerated(edge)) {
                 continue;
             }
-            if (faces.size() == 2 && BRep_Tool::Surface(faces[0]) == BRep_Tool::Surface(faces[1])) {
-                continue;
-            }
+            const bool seam = BRep_Tool::IsClosed(edge, faces[0]);
             TopLoc_Location loc;
             const occ::handle<Poly_Triangulation> tri = BRep_Tool::Triangulation(faces[0], loc);
             if (tri.IsNull()) {
@@ -1311,9 +1409,25 @@ class Occt : public Kernel<Shape> {
             }
             const gp_Trsf trsf = loc.Transformation();
             const NCollection_Array1<int>& ids = poly->Nodes();
-            std::vector<Vec3> line;
+            DisplayEdge line;
             for (int j = ids.Lower(); j <= ids.Upper(); j++) {
-                line.push_back(xyz(tri->Node(ids.Value(j)).Transformed(trsf)));
+                line.points.push_back(xyz(tri->Node(ids.Value(j)).Transformed(trsf)));
+            }
+            if (seam) {
+                out.seams.push_back(std::move(line.points));
+                continue;
+            }
+            for (const TopoDS_Face& f : faces) {
+                for (std::size_t i = 0; i < drawn.size(); i++) {
+                    if (drawn[i].IsSame(f)) {
+                        line.faces.push_back(static_cast<std::uint32_t>(i));
+                        break;
+                    }
+                }
+            }
+            if (faces.size() == 2) {
+                line.turn = turn(edge, faces[0], faces[1], poly);
+                line.split = same_surface(faces[0], faces[1]);
             }
             out.edges.push_back(std::move(line));
         }

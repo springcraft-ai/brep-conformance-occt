@@ -31,7 +31,7 @@ one reply per line, as the suite's
 describes, and keeps solids between requests under integer handles. It answers each function with
 OpenCascade's one call for it, as
 [the contract](https://github.com/springcraft-ai/brep-conformance/blob/main/doc/contract.md#what-an-adapter-may-do)
-asks, and lists the rest as unsupported. It is written on the suite's
+asks, and lists only those functions as the ones it supports. It is written on the suite's
 [C++ binding](https://github.com/springcraft-ai/brep-conformance/tree/main/protocol/cpp) of the
 protocol, and links OpenCascade's own libraries, at the release [`pyproject.toml`](pyproject.toml)
 pins.
@@ -42,11 +42,15 @@ same on every compiler and platform.
 
 A display is OpenCascade's mesher read back the way its glTF writer reads it: each face through
 `RWMesh_FaceIterator`, with OpenCascade's normals and its triangles turned outward, and the polyline
-of each edge the mesher draws between two faces. A degenerate edge, a seam (closed on its one face)
-and an edge between two faces on one surface are left out, as the protocol's display asks; the
-choice is OpenCascade's own `BRep_Tool` answers, with no number of the adapter's. At a degenerate
-edge, such as a cone's apex or a ball's pole, each triangle has its own vertex, as the protocol's
-display asks, with OpenCascade's normal there along the triangle's middle.
+of each edge the mesher draws. A degenerate edge is left out. A seam, closed on its one face as
+`BRep_Tool` reports, goes to `seams`. Each other edge goes to `edges`, with the faces it bounds and,
+between two faces, the turn: the least and greatest signed angle between OpenCascade's outward
+normals of the two faces at the polyline's vertices, each read at the point of the edge's curve the
+mesher placed there. An edge is flagged as a split where its two faces lie on one surface: the same
+surface, or, for planes, cylinders, cones, spheres and tori, surfaces whose axes, positions and radii
+agree to within OpenCascade's `Precision::Confusion` and `Precision::Angular`. At a degenerate edge,
+such as a cone's apex or a ball's pole, each triangle has its own vertex, as the protocol's display
+asks, with OpenCascade's normal there along the triangle's middle.
 
 ## Setup
 
@@ -58,7 +62,7 @@ installs the rest on its first run:
 - The headers of the same OpenCascade release, CMake and nlohmann/json, from conda-forge, which
   micromamba installs into `build/`. On macOS the compiler comes from conda-forge as well, so the
   adapter shares the libc++ that the package's libraries load.
-- The suite's C++ binding, from the protocol's release, pinned by its hash.
+- The suite's C++ binding, from its own release, pinned by its hash.
 
 ## Usage
 

@@ -12,14 +12,14 @@ if(NOT IS_DIRECTORY "${OCCT_INCLUDE_DIR}" OR NOT IS_DIRECTORY "${OCCT_LIBRARY_DI
     message(FATAL_ERROR "Set OCCT_INCLUDE_DIR and OCCT_LIBRARY_DIR, or run build.sh")
 endif()
 
-# The suite's C++ binding of the protocol, as the protocol's release carries it, pinned by its
+# The suite's C++ binding of the protocol, as the binding's own release carries it, pinned by its
 # hash. FETCHCONTENT_SOURCE_DIR_BREP_PROTOCOL names a binding to build against instead, such as a
 # checkout's protocol/cpp.
 include(FetchContent)
 FetchContent_Declare(
     brep_protocol
-    URL https://github.com/springcraft-ai/brep-conformance/releases/download/brep-protocol-v1.0.0/brep_protocol-1.0.0.tar.xz
-    URL_HASH SHA256=846b90527e63c1135f71f2faa3e5ad8ed4e2b617a8a748e8c116068ea889651a
+    URL https://github.com/springcraft-ai/brep-conformance/releases/download/brep-protocol-cpp-v2.0.0/brep_protocol-2.0.0.tar.xz
+    URL_HASH SHA256=03897e5a780523b39697b3eb71d6b3772a4e9237f336e59ecc6f085699412a04
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(brep_protocol)
