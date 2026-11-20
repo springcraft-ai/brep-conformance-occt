@@ -25,14 +25,20 @@ maintains it.
 
 ## Overview
 
-[`adapter.py`](adapter.py) answers the suite's requests on stdin and stdout, one JSON request and
+[`adapter.cpp`](adapter.cpp) answers the suite's requests on stdin and stdout, one JSON request and
 one reply per line, as the suite's
 [api.md](https://github.com/springcraft-ai/brep-conformance/blob/main/doc/api.md#calling-a-kernel)
 describes, and keeps solids between requests under integer handles. It answers each function with
 OpenCascade's one call for it, as
 [the contract](https://github.com/springcraft-ai/brep-conformance/blob/main/doc/contract.md#what-an-adapter-may-do)
-asks, and lists the rest as unsupported. It reaches OpenCascade through the OCP bindings, at the
-release [`pyproject.toml`](pyproject.toml) pins.
+asks, and lists the rest as unsupported. It is written on the suite's
+[C++ binding](https://github.com/springcraft-ai/brep-conformance/tree/main/protocol/cpp) of the
+protocol, and links OpenCascade's own libraries, at the release [`pyproject.toml`](pyproject.toml)
+pins.
+
+The few numbers the adapter computes itself, such as a profile's points placed in its frame, are in
+[`arithmetic.cpp`](arithmetic.cpp), which is compiled without fused multiply-adds, so they are the
+same on every compiler and platform.
 
 A display is OpenCascade's mesher read back the way its glTF writer reads it: each face through
 `RWMesh_FaceIterator`, with OpenCascade's normals and its triangles turned outward, and the polyline
@@ -44,8 +50,15 @@ display asks, with OpenCascade's normal there along the triangle's middle.
 
 ## Setup
 
-[uv](https://docs.astral.sh/uv/), which installs Python 3.12 and the pinned OCP package on the first
-run.
+[uv](https://docs.astral.sh/uv/) and curl, and on Linux a C++17 compiler. [`build.sh`](build.sh)
+installs the rest on its first run:
+
+- OpenCascade's libraries, from the `cadquery-ocp-novtk` package [`pyproject.toml`](pyproject.toml)
+  pins, which uv installs with Python 3.12.
+- The headers of the same OpenCascade release, CMake and nlohmann/json, from conda-forge, which
+  micromamba installs into `build/`. On macOS the compiler comes from conda-forge as well, so the
+  adapter shares the libc++ that the package's libraries load.
+- The suite's C++ binding, from the protocol's release, pinned by its hash.
 
 ## Usage
 
@@ -53,13 +66,15 @@ The suite runs the adapter as a separate process. Build the adapter here, then r
 checkout of [brep-conformance](https://github.com/springcraft-ai/brep-conformance) beside this one:
 
 ```bash
-uv sync --project .
+./build.sh
 cd ../brep-conformance
 cargo build --release -p brep-conformance
-target/release/brep-conformance --adapter "uv run -q --project ../brep-conformance-occt \
-    python -I ../brep-conformance-occt/adapter.py" \
+target/release/brep-conformance --adapter ../brep-conformance-occt/build/occt-adapter \
     --out occt.json
 ```
+
+`BREP_CONFORMANCE=<checkout> ./build.sh` builds against a checkout's binding in place of the
+release's.
 
 ## Licences
 
@@ -69,13 +84,15 @@ That licence covers the adapter and nothing else. It does not cover the kernel, 
 relicenses the kernel.
 
 OpenCascade Technology is a separate work under its own licence: the GNU Lesser General Public
-License 2.1 with the Open CASCADE exception. The adapter reaches it through the
-[OCP](https://github.com/CadQuery/OCP) Python bindings, whose package declares `Apache-2.0`. Each
-project's own repository is the authority on its licence, not this page.
+License 2.1 with the Open CASCADE exception. Each project's own repository is the authority on its
+licence, not this page.
 
-The adapter is a Python script that imports those bindings. This repository holds no OpenCascade
-source and no OpenCascade binaries; `uv` downloads them when the adapter runs. Anything you
-redistribute that includes them is subject to their terms as well as this repository's.
+The adapter links OpenCascade's shared libraries dynamically: the ones in the `cadquery-ocp-novtk`
+package of the [OCP](https://github.com/CadQuery/OCP) project, whose package declares `Apache-2.0`,
+built against OpenCascade's headers from conda-forge's `occt` package. This repository holds no
+OpenCascade source and no OpenCascade binaries; the build downloads them. Anything you redistribute
+that includes them is subject to their terms as well as this repository's. The adapter also uses the
+suite's C++ binding and nlohmann/json, both under the MIT licence.
 
 ## Contributing
 

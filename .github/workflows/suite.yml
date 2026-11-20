@@ -39,12 +39,12 @@ jobs:
           workspaces: suite -> target
       - name: Build
         run: |
-          # OpenCascade's Python package fails to import without libgl1.
+          # The OpenCascade libraries the adapter links load graphics toolkits that need libgl1.
           sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libgl1
           (cd suite && cargo build --release --locked -p brep-conformance)
-          uv sync -q --frozen --project adapter
-          echo "ADAPTER=$PWD/adapter/.venv/bin/python -I $PWD/adapter/adapter.py" >> "$GITHUB_ENV"
+          adapter/build.sh
+          echo "ADAPTER=$PWD/adapter/build/occt-adapter" >> "$GITHUB_ENV"
       - name: Run the suite
         run: |
           case "$GITHUB_EVENT_NAME" in

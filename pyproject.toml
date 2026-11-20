@@ -1,7 +1,7 @@
 [project]
 name = "occt-adapter"
 version = "0.1.0"
-description = "The OpenCascade adapter for the B-rep protocol the conformance suite drives"
+description = "The OpenCascade libraries the adapter links, from the release it pins"
 requires-python = ">=3.12,<3.13"
 license = "MIT"
 dependencies = ["cadquery-ocp-novtk==8.0.1.1.0"]
