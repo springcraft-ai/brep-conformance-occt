@@ -18,8 +18,8 @@ endif()
 include(FetchContent)
 FetchContent_Declare(
     brep_protocol
-    URL https://github.com/springcraft-ai/brep-conformance/releases/download/brep-protocol-cpp-v2.0.0/brep_protocol-2.0.0.tar.xz
-    URL_HASH SHA256=03897e5a780523b39697b3eb71d6b3772a4e9237f336e59ecc6f085699412a04
+    URL https://github.com/springcraft-ai/brep-conformance/releases/download/brep-protocol-cpp-v2.0.1/brep_protocol-2.0.1.tar.xz
+    URL_HASH SHA256=ba4a25e29ab779363f70f66c0a68837c8a87430a9c5ac29a11eb0067ba91ec27
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(brep_protocol)
