@@ -33,15 +33,11 @@ jobs:
           git clone -q https://github.com/springcraft-ai/brep-conformance.git suite
           git -C suite checkout -q "$ref"
           echo "Suite at $(git -C suite rev-parse --short HEAD) ($ref)" >> "$GITHUB_STEP_SUMMARY"
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: suite -> target
       - name: Build
         run: |
-          # The OpenCascade libraries the adapter links load graphics toolkits that need libgl1.
-          sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libgl1
           (cd suite && cargo build --release --locked -p brep-conformance)
           adapter/build.sh
           echo "ADAPTER=$PWD/adapter/build/occt-adapter" >> "$GITHUB_ENV"

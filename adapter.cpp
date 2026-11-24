@@ -738,11 +738,11 @@ class Occt : public Kernel<Shape> {
         return adaptive() ? "opencascade" : "opencascade-fixed-gprop";
     }
 
-    // The release of the cadquery-ocp-novtk package whose OpenCascade libraries this build links,
-    // which the build passes in; the release of the headers otherwise.
+    // The version and build of conda-forge's occt package this build links, which the build passes
+    // in; the release of the headers otherwise.
     std::string version() const override {
-#ifdef OCCT_PACKAGE_VERSION
-        return OCCT_PACKAGE_VERSION;
+#ifdef OCCT_PACKAGE
+        return OCCT_PACKAGE;
 #else
         return OCC_VERSION_COMPLETE;
 #endif

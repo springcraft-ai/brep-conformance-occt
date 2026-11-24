@@ -33,8 +33,8 @@ OpenCascade's one call for it, as
 [the contract](https://github.com/springcraft-ai/brep-conformance/blob/main/doc/contract.md#what-an-adapter-may-do)
 asks, and lists only those functions as the ones it supports. It is written on the suite's
 [C++ binding](https://github.com/springcraft-ai/brep-conformance/tree/main/protocol/cpp) of the
-protocol, and links OpenCascade's own libraries, at the release [`pyproject.toml`](pyproject.toml)
-pins.
+protocol, and links OpenCascade's own libraries from conda-forge's `occt` package, at the release
+[`build.sh`](build.sh) pins.
 
 The few numbers the adapter computes itself, such as a profile's points placed in its frame, are in
 [`arithmetic.cpp`](arithmetic.cpp), which is compiled without fused multiply-adds, so they are the
@@ -54,15 +54,16 @@ asks, with OpenCascade's normal there along the triangle's middle.
 
 ## Setup
 
-[uv](https://docs.astral.sh/uv/) and curl, and on Linux a C++17 compiler. [`build.sh`](build.sh)
-installs the rest on its first run:
+curl, and on Linux a C++17 compiler. [`build.sh`](build.sh) installs the rest on its first run:
 
-- OpenCascade's libraries, from the `cadquery-ocp-novtk` package [`pyproject.toml`](pyproject.toml)
-  pins, which uv installs with Python 3.12.
-- The headers of the same OpenCascade release, CMake and nlohmann/json, from conda-forge, which
-  micromamba installs into `build/`. On macOS the compiler comes from conda-forge as well, so the
-  adapter shares the libc++ that the package's libraries load.
+- OpenCascade, from conda-forge's `occt` package in its build without VTK, at the release
+  `build.sh` pins, with CMake and nlohmann/json, all of which micromamba installs into `build/`. On
+  macOS the compiler comes from conda-forge as well, so the adapter shares the libc++ that
+  OpenCascade's libraries load.
 - The suite's C++ binding, from its own release, pinned by its hash.
+
+To move to another OpenCascade release, change `occt` in `build.sh`; the next build makes the
+environment again.
 
 ## Usage
 
@@ -93,9 +94,8 @@ OpenCascade Technology is a separate work under its own licence: the GNU Lesser 
 License 2.1 with the Open CASCADE exception. Each project's own repository is the authority on its
 licence, not this page.
 
-The adapter links OpenCascade's shared libraries dynamically: the ones in the `cadquery-ocp-novtk`
-package of the [OCP](https://github.com/CadQuery/OCP) project, whose package declares `Apache-2.0`,
-built against OpenCascade's headers from conda-forge's `occt` package. This repository holds no
+The adapter links OpenCascade's shared libraries dynamically: the ones in conda-forge's `occt`
+package. This repository holds no
 OpenCascade source and no OpenCascade binaries; the build downloads them. Anything you redistribute
 that includes them is subject to their terms as well as this repository's. The adapter also uses the
 suite's C++ binding, under the suite's licence, and nlohmann/json, under the MIT licence.
