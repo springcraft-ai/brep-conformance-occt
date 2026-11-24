@@ -738,11 +738,11 @@ class Occt : public Kernel<Shape> {
         return adaptive() ? "opencascade" : "opencascade-fixed-gprop";
     }
 
-    // The version and build of conda-forge's occt package this build links, which the build passes
-    // in; the release of the headers otherwise.
+    // The OpenCascade release of conda-forge's occt package this build links, which the build
+    // passes in; the release of the headers otherwise. The package's build is in configuration.
     std::string version() const override {
-#ifdef OCCT_PACKAGE
-        return OCCT_PACKAGE;
+#ifdef OCCT_RELEASE
+        return OCCT_RELEASE;
 #else
         return OCC_VERSION_COMPLETE;
 #endif
@@ -756,7 +756,16 @@ class Occt : public Kernel<Shape> {
         return std::string("fuzzy value and tolerances 1e-7 mm where a ") + "call takes one; " +
                (adaptive() ? "volumes and areas integrated adaptively to 1e-9"
                            : "volumes and areas by the fixed Gauss rule") +
-               "; meshes at an angular deflection of 0.5 rad";
+               "; meshes at an angular deflection of 0.5 rad" + package();
+    }
+
+    // The occt package and build this adapter links, where the build names one.
+    static std::string package() {
+#ifdef OCCT_PACKAGE
+        return std::string("; conda-forge's occt package ") + OCCT_PACKAGE;
+#else
+        return "";
+#endif
     }
 
     // Every function of the protocol except these, which the adapter does not offer:

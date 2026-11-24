@@ -4,7 +4,8 @@
 cmake_minimum_required(VERSION 3.24)
 project(occt_adapter LANGUAGES CXX)
 
-set(OCCT_PACKAGE "" CACHE STRING "The occt package's version and build, which hello reports")
+set(OCCT_RELEASE "" CACHE STRING "The OpenCascade release of the occt package, which hello reports")
+set(OCCT_PACKAGE "" CACHE STRING "The occt package's version and build, which configuration names")
 
 # The suite's C++ binding of the protocol, as the binding's own release carries it, pinned by its
 # hash. FETCHCONTENT_SOURCE_DIR_BREP_PROTOCOL names a binding to build against instead, such as a
@@ -31,6 +32,9 @@ target_include_directories(occt-adapter SYSTEM PRIVATE "${OpenCASCADE_INCLUDE_DI
 target_link_libraries(occt-adapter PRIVATE brep_protocol::brep_protocol
     TKRWMesh TKXCAF TKDESTEP TKXSBase TKHLR TKMesh TKOffset TKFillet TKBool TKBO TKPrim
     TKShHealing TKTopAlgo TKGeomAlgo TKBRep TKGeomBase TKG3d TKG2d TKMath TKernel)
+if(OCCT_RELEASE)
+    target_compile_definitions(occt-adapter PRIVATE OCCT_RELEASE="${OCCT_RELEASE}")
+endif()
 if(OCCT_PACKAGE)
     target_compile_definitions(occt-adapter PRIVATE OCCT_PACKAGE="${OCCT_PACKAGE}")
 endif()

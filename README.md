@@ -40,6 +40,9 @@ The few numbers the adapter computes itself, such as a profile's points placed i
 [`arithmetic.cpp`](arithmetic.cpp), which is compiled without fused multiply-adds, so they are the
 same on every compiler and platform.
 
+`hello` reports the OpenCascade release `build.sh` pins, such as `8.0.2`, and `configuration` names
+the build of the `occt` package.
+
 A display is OpenCascade's mesher read back the way its glTF writer reads it: each face through
 `RWMesh_FaceIterator`, with OpenCascade's normals and its triangles turned outward, and the polyline
 of each edge the mesher draws. A degenerate edge is left out. A seam, closed on its one face as
