@@ -38,7 +38,7 @@ fi
 package=$(basename "$(compgen -G "$env/conda-meta/occt-$occt-novtk_*.json")" .json)
 
 args=(-G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_MAKE_PROGRAM="$env/bin/ninja"
-    -DCMAKE_PREFIX_PATH="$env" -DOCCT_PACKAGE="${package#occt-}")
+    -DCMAKE_PREFIX_PATH="$env" -DOCCT_RELEASE="$occt" -DOCCT_PACKAGE="${package#occt-}")
 if [ -n "$compiler" ]; then
     args+=(-DCMAKE_CXX_COMPILER="$env/bin/clang++" -DCMAKE_OSX_SYSROOT="$(xcrun --show-sdk-path)")
 fi
