@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Compiled with floating-point contraction off and without merging cos and sin into one call:
 // arithmetic.h says why.
 #include "arithmetic.h"

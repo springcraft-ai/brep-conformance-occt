@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // The arithmetic the adapter does itself, on the request's numbers, before it calls OpenCascade.
 // arithmetic.cpp is compiled with floating-point contraction off, so every result is the same on
 // every compiler and platform: a fused multiply-add rounds once where a multiply and an add round

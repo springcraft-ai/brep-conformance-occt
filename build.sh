@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MIT OR Apache-2.0
 # Builds the adapter at build/occt-adapter. OpenCascade's libraries come from the package
 # pyproject.toml pins, installed by uv; the headers of the same release, CMake and nlohmann/json
 # from conda-forge, installed by micromamba into build/. On macOS the compiler comes from

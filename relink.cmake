@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MIT OR Apache-2.0
 # On macOS, points the adapter at the package's own copies of its libraries: each library the
 # package names by the folder it was built in, and the libc++ the package's libraries load.
 # usage: cmake -DBINARY=<adapter> -DLIBRARY_DIR=<the package's library folder> -P relink.cmake
