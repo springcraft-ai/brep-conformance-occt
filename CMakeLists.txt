@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MIT OR Apache-2.0
 # The adapter, linked against the OpenCascade libraries of the cadquery-ocp-novtk package that
 # pyproject.toml pins, built with the headers of the same release. build.sh sets the cache
 # variables.

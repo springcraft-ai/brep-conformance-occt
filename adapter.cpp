@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // The OpenCascade adapter for the B-rep protocol (doc/api.md), on the suite's C++ binding of it:
 // one JSON request per line on stdin, one reply per line on stdout, solids kept between requests
 // under integer handles, and each function answered with OpenCascade's one call for it.

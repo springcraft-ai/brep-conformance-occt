@@ -82,9 +82,11 @@ release's.
 
 ## Licences
 
-The adapter in this repository is under the MIT licence: see [LICENSE](LICENSE).
+The adapter in this repository is under either the MIT licence
+([LICENSE-MIT](LICENSE-MIT)) or the Apache License, Version 2.0
+([LICENSE-APACHE](LICENSE-APACHE)), at your option.
 
-That licence covers the adapter and nothing else. It does not cover the kernel, and nothing here
+Either licence covers the adapter and nothing else. It does not cover the kernel, and nothing here
 relicenses the kernel.
 
 OpenCascade Technology is a separate work under its own licence: the GNU Lesser General Public
@@ -96,7 +98,7 @@ package of the [OCP](https://github.com/CadQuery/OCP) project, whose package dec
 built against OpenCascade's headers from conda-forge's `occt` package. This repository holds no
 OpenCascade source and no OpenCascade binaries; the build downloads them. Anything you redistribute
 that includes them is subject to their terms as well as this repository's. The adapter also uses the
-suite's C++ binding and nlohmann/json, both under the MIT licence.
+suite's C++ binding, under the suite's licence, and nlohmann/json, under the MIT licence.
 
 ## Contributing
 
