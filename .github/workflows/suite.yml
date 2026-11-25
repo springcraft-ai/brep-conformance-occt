@@ -1,16 +1,15 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 name: Suite
 
-# A pull request or a push sets up the adapter and runs a few tests from each area of the suite; each
-# week, and on demand, it runs the whole suite. The adapter talks to the suite only through its
-# process, so both run at the suite's main branch. Times on these shared machines are not
-# comparable; this checks that the adapter drives its kernel, and the results are only that.
+# A pull request or a push sets up the adapter and runs a few tests from each area of the suite; a
+# manual run runs the whole suite. Every run uses the suite commit of the C++ binding release that
+# CMakeLists.txt downloads. The result changes only with the adapter, its kernel or that release, so
+# nothing runs on a schedule. Times on these shared machines are not comparable; this checks that
+# the adapter drives its kernel, and the results are only that.
 on:
   pull_request:
   push:
     branches: [main]
-  schedule:
-    - cron: '17 6 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -29,7 +28,10 @@ jobs:
           path: adapter
       - name: Check out the suite
         run: |
-          ref=main
+          # The tag of the binding release that CMakeLists.txt downloads.
+          ref="$(grep -o 'releases/download/brep-protocol-cpp-v[^/]*' adapter/CMakeLists.txt \
+              | sed 's|.*/||')"
+          test -n "$ref"
           git clone -q https://github.com/springcraft-ai/brep-conformance.git suite
           git -C suite checkout -q "$ref"
           echo "Suite at $(git -C suite rev-parse --short HEAD) ($ref)" >> "$GITHUB_STEP_SUMMARY"
@@ -44,7 +46,7 @@ jobs:
       - name: Run the suite
         run: |
           case "$GITHUB_EVENT_NAME" in
-              schedule | workflow_dispatch) tests=() ;;
+              workflow_dispatch) tests=() ;;
               *) tests=(--family "$SMOKE") ;;
           esac
           suite/target/release/brep-conformance --adapter "$ADAPTER" --threads 4 \
